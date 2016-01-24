@@ -1,25 +1,110 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: 'Reproducible Research: Peer Assessment 1'
+author: "Vipin Kumar Tyagi"
+date: "January 23, 2016"
+output: html_document
 ---
 
+##  Loading and preprocessing the data
 
-## Loading and preprocessing the data
+The data is unzipped from the zip file which can be downloaded from website using this link [Activity Monitoring Data] <https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip>. The unzipped csv file is read using read.csv command and this data is named as 'data' for further processing. 
+
+```{r}
+unzip(zipfile = 'activity.zip')
+data <- read.csv('activity.csv')
+str(data)
+```
+
+## What is the mean total number of steps taken per day?
+
+The figures will be drawn using ggplot. Thus library of ggplot2 is loaded. tapply function is applied to evaluate sum of steps for drawing histogram. Statistical parameters like mean and median are also evaluated.
+
+```{r}
+library(ggplot2)
+total_steps <- tapply(data$steps, data$date, FUN = sum, na.rm = TRUE)
+ggplot(NULL, aes(x=total_steps)) + geom_histogram(binwidth = 1000, fill='cornsilk',color='grey60',size=0.2,alpha=0.9)
+mean(total_steps, na.rm = TRUE)
+median(total_steps, na.rm = TRUE)
+```
+## What is the average daily pattern?
+
+A time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis) is drawn which gives the daily average pattern. The 'aggregate' function is used for this evaluation.
+. 
+```{r}
+averages <- aggregate(x=list(steps=data$steps), by = list(interval=data$interval), FUN = mean, na.rm = TRUE)
+ggplot(data = averages, aes(x=interval, y=steps)) +
+     geom_line(color='dark blue', size= 0.25, alpha=0.75) +
+     xlab('5-minute interval') +
+     ylab('average number of steps taken')
+```
+
+Now after visualizing the time series polt, evaluation of maximum number of steps taken in 5-minute interval on average across all the days in dataset can be evaluated using 'which.max' command.
+
+```{r}
+averages[which.max(averages$steps),]
+```
+
+## Inputing missing values
+
+There are many missing values (designated as 'NA') in days and intervals. These missing NA values introduce bias during the evaluation of various parameters from the data. Deleting all NA values will make data ineffective in interpreting the data and will fail to arrive at the correct conclusions. Thus imputing  of missing data is done to arrive at more accurate conclusions.
+
+```{r}
+missing <- is.na(data$steps)
+# How many observations are missing?
+table(missing)
+```
+the imputing of missing data is done with filling them with the mean value of its 5-minute interval.
 
 
+```{r}
+# Replace each missing value with the mean value of its 5-minute interval
+fill.value <- function(steps, interval) {
+  filled <- NA
+  if(!is.na(steps))
+    filled <- c(steps)
+  else
+    filled <- (averages[averages$interval == interval, "steps"])
+  return(filled)
+} 
+filled.data <- data
+filled.data$steps <- mapply(fill.value, filled.data$steps, filled.data$interval)
+```
 
-## What is mean total number of steps taken per day?
+After using the filled data set, new histogram of the total number of steps taken each day can be prepared along with calculations of mean and median of total number of steps.
 
-
-
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
-
-
+```{r}
+total_steps <- tapply(filled.data$steps, filled.data$date, FUN = sum, na.rm = TRUE)
+ggplot(NULL, aes(x=total_steps)) + geom_histogram(binwidth = 1000, fill='cornsilk',color='grey60',size=0.2,alpha=0.9)
+mean(total_steps, na.rm = TRUE)
+median(total_steps, na.rm = TRUE)
+```
+It is observed that the mean and median values for imputed data are on higher side.The reason is that in the original data, there are many days with *step* values *NA* for any interval. The total number of steps taken in such days are set to zeros by default. These values are replaced by average *steps* of associated *interval* value.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+The dataset with imputed values is being used here. First the day of week for each measurement is ascertained. A function to determine weekday or weekend is first written.
+
+```{r}
+weeday_or_weekend <- function(date) {
+  day <- weekdays(date)
+  if(day %in% c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'))
+    return('weekday')
+  else if (day %in% c('Saturday', 'Sunday'))
+    return('weekend')
+  else
+    stop('invalid date')
+}
+filled.data$date <- as.Date(filled.data$date)
+filled.data$day <- sapply(filled.data$date, FUN=weeday_or_weekend)
+```
+
+A panel plot containing plots of average number of steps taken on weekdays and weekends can be constructed.
+
+```{r}
+averages <- aggregate(steps ~ interval + day, data = filled.data, mean)
+ggplot(averages, aes(interval, steps)) +
+  geom_line(color='red', size= 0.25, alpha=0.75) + 
+  facet_grid(day ~ .) +
+  xlab('5-minute interval') + ylab('Number of steps')
+```
+It is evident from the plot that average number steps for weekdays reaches peak of about 225 steps while overall number of steps is higher on weekends.
