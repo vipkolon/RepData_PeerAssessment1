@@ -107,4 +107,5 @@ ggplot(averages, aes(interval, steps)) +
   facet_grid(day ~ .) +
   xlab('5-minute interval') + ylab('Number of steps')
 ```
+
 It is evident from the plot that average number steps for weekdays reaches peak of about 225 steps while overall number of steps is higher on weekends.
